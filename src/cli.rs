@@ -1,16 +1,31 @@
 use crate::McpClient;
-use clap::ArgMatches;
+use clap::{ArgMatches, crate_version};
 
 pub async fn handle_subcommand(matches: &ArgMatches) -> anyhow::Result<()> {
-    let url = matches.get_one::<String>("url").expect("required argument");
-    let mut client = McpClient::connect(url).await?;
     match matches.subcommand() {
-        Some(("tool", matches)) => handle_tool(&client, matches).await?,
+        Some(("tool", matches)) => {
+            let url = matches
+                .get_one::<String>("url")
+                .expect("required argument --url");
+            let mut client = McpClient::connect(url).await?;
+
+            let ret = handle_tool(&client, matches).await;
+
+            client.close().await?;
+            ret?;
+        }
+        Some(("version", _)) => {
+            handle_version()?;
+        }
         _ => {
             anyhow::bail!("Unknown command");
         }
     }
-    client.close().await?;
+    Ok(())
+}
+
+fn handle_version() -> anyhow::Result<()> {
+    println!("{}", crate_version!());
     Ok(())
 }
 

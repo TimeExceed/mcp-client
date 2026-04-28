@@ -21,15 +21,17 @@ async fn main() -> anyhow::Result<()> {
 
     let matches = Command::new("mcp-client")
         .about("A simple MCP client that supports tools/list and tools/call via streamable HTTP")
-        .arg(
-            clap::Arg::new("url")
-                .long("url")
-                .required(true)
-                .help("URL of the MCP server"),
-        )
+        .arg_required_else_help(true)
+        .subcommand(Command::new("version").about("Prints the version information"))
         .subcommand(
             Command::new("tool")
                 .about("tool operations to an MCP server")
+                .arg(
+                    clap::Arg::new("url")
+                        .long("url")
+                        .required(false)
+                        .help("URL to the MCP server"),
+                )
                 .subcommand(Command::new("list").about("lists all tools"))
                 .subcommand(
                     Command::new("call")
