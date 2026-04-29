@@ -1,4 +1,4 @@
-use clap::Command;
+use clap::{Arg, ArgGroup, Command};
 use tracing::error;
 
 #[tokio::main]
@@ -26,23 +26,36 @@ async fn main() -> anyhow::Result<()> {
         .subcommand(
             Command::new("tool")
                 .about("tool operations to an MCP server")
+                .arg_required_else_help(true)
+                .arg(Arg::new("url").long("url").help("URL to the MCP server"))
                 .arg(
-                    clap::Arg::new("url")
-                        .long("url")
-                        .required(false)
-                        .help("URL to the MCP server"),
+                    Arg::new("unix-socket")
+                        .long("unix")
+                        .help("The unix socket to connect to the MCP server"),
+                )
+                .arg(
+                    Arg::new("stdio")
+                        .long("stdio")
+                        .value_name("exe")
+                        .help("Runs a MCP server by stdio transport. \
+                            `exe` should be a piece of shell script which can be executed by `sh -c`")
+                )
+                .group(
+                    ArgGroup::new("transport")
+                        .args(["url", "unix-socket", "stdio"])
+                        .required(true),
                 )
                 .subcommand(Command::new("list").about("lists all tools"))
                 .subcommand(
                     Command::new("call")
                         .about("call a specific tool")
                         .arg(
-                            clap::Arg::new("tool-name")
+                            Arg::new("tool-name")
                                 .required(true)
                                 .help("Name of the tool to call"),
                         )
                         .arg(
-                            clap::Arg::new("arguments")
+                            Arg::new("arguments")
                                 .long("arg")
                                 .help("Arguments for the tool call in JSON format"),
                         ),

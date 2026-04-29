@@ -4,10 +4,16 @@ use clap::{ArgMatches, crate_version};
 pub async fn handle_subcommand(matches: &ArgMatches) -> anyhow::Result<()> {
     match matches.subcommand() {
         Some(("tool", matches)) => {
-            let url = matches
-                .get_one::<String>("url")
-                .expect("required argument --url");
-            let mut client = McpClient::connect(url).await?;
+            let mut client = match (
+                matches.get_one::<String>("url"),
+                matches.get_one::<String>("unix-socket"),
+                matches.get_one::<String>("stdio"),
+            ) {
+                (Some(url), _, _) => McpClient::connect(url).await?,
+                (_, Some(unix), _) => McpClient::connect_unix_socket(unix).await?,
+                (_, _, Some(exe)) => McpClient::stdio(exe).await?,
+                _ => unreachable!(),
+            };
 
             let ret = handle_tool(&client, matches).await;
 
@@ -17,9 +23,7 @@ pub async fn handle_subcommand(matches: &ArgMatches) -> anyhow::Result<()> {
         Some(("version", _)) => {
             handle_version()?;
         }
-        _ => {
-            anyhow::bail!("Unknown command");
-        }
+        _ => unreachable!(),
     }
     Ok(())
 }
@@ -33,9 +37,7 @@ async fn handle_tool(mcp: &McpClient, matches: &ArgMatches) -> anyhow::Result<()
     match matches.subcommand() {
         Some(("list", _)) => handle_tool_list(mcp).await,
         Some(("call", matches)) => handle_tool_call(mcp, matches).await,
-        _ => {
-            anyhow::bail!("Unknown command for `tool`");
-        }
+        _ => unreachable!(),
     }
 }
 

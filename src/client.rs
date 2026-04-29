@@ -4,8 +4,11 @@ use rmcp::{
     RoleClient,
     model::ClientInfo,
     service::{RunningService, Service, ServiceError, serve_client},
-    transport::streamable_http_client::{
-        StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
+    transport::{
+        IntoTransport, TokioChildProcess,
+        streamable_http_client::{
+            StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
+        },
     },
 };
 use std::borrow::Cow;
@@ -25,7 +28,21 @@ impl McpClient {
     /// # Returns
     /// A connected MCP client
     pub(crate) async fn connect(url: &str) -> anyhow::Result<Self> {
-        Self::connect_with_config(StreamableHttpClientTransportConfig::with_uri(url)).await
+        let config = StreamableHttpClientTransportConfig::with_uri(url);
+        let transport = StreamableHttpClientTransport::from_config(config);
+        Self::new(transport).await
+    }
+
+    pub(crate) async fn connect_unix_socket(path: &str) -> anyhow::Result<Self> {
+        let transport = StreamableHttpClientTransport::from_unix_socket(path, "http://localhost/");
+        Self::new(transport).await
+    }
+
+    pub(crate) async fn stdio(exe: &str) -> anyhow::Result<Self> {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.args(["-c", exe]);
+        let transport = TokioChildProcess::new(cmd)?;
+        Self::new(transport).await
     }
 
     /// Connect to an MCP server with custom configuration
@@ -35,11 +52,11 @@ impl McpClient {
     ///
     /// # Returns
     /// A connected MCP client
-    pub(crate) async fn connect_with_config(
-        config: StreamableHttpClientTransportConfig,
-    ) -> anyhow::Result<Self> {
-        let transport = StreamableHttpClientTransport::from_config(config);
-
+    async fn new<T, E, A>(transport: T) -> anyhow::Result<Self>
+    where
+        T: IntoTransport<RoleClient, E, A> + Send + Sync + 'static,
+        E: std::error::Error + Send + Sync + 'static,
+    {
         let client_info = ClientInfo::default();
         let service = SimpleClientService { info: client_info };
 
